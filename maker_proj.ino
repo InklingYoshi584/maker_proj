@@ -9,7 +9,7 @@ MFRC522 mfrc522(SS_PIN, RST_PIN);  // instatiate a MFRC522 reader object.
 MFRC522::MIFARE_Key key;           //create a MIFARE_Key struct named 'key', which will hold the card information
 
 byte readbackblock[18];
-
+int block = 2;
 // const int buzzer = ;
 // const int pir = ;
 // const int vibSensor = ;
@@ -45,33 +45,58 @@ void setup() {
 
 void loop() {
     // Look for new cards
+  checkForCards();
+}
+
+void checkForCards() {
   if (!mfrc522.PICC_IsNewCardPresent()) {
     return;
   }
 
-  readBlock(2, readbackblock);
   // Select one of the cards
   if (!mfrc522.PICC_ReadCardSerial()) {
     return;
   }
+
+  readBlock(2, readbackblock);
   Serial.print("got card");
-    Serial.println("read block: ");
+  Serial.println("read block: ");
   for (int j = 0; j < 16; j++) {
     Serial.write(readbackblock[j]);
   }
+  
+  // Halt PICC and stop crypto
+  mfrc522.PICC_HaltA();
+  mfrc522.PCD_StopCrypto1();
 }
-
+void resetCardReader() {
+    SPI.begin();
+    mfrc522.PCD_Init();
+}
 
 //Read specific block
 int readBlock(int blockNumber, byte arrayAddress[]) {
   int largestModulo4Number = blockNumber / 4 * 4;
   int trailerBlock = largestModulo4Number + 3;
 
-  // Authentication
-  byte status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, trailerBlock, &key, &(mfrc522.uid));
+  // Authentication with retry logic
+  byte status;
+  int retryCount = 0;
+  const int maxRetries = 3;
+  
+  do {
+    status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, trailerBlock, &key, &(mfrc522.uid));
+    if (status != MFRC522::STATUS_OK) {
+      Serial.print("PCD_Authenticate() failed (read): ");
+      Serial.println(mfrc522.GetStatusCodeName(status));
+      retryCount++;
+      if(retryCount < maxRetries) {
+        delay(100); // Short delay between retries
+      }
+    }
+  } while (status != MFRC522::STATUS_OK && retryCount < maxRetries);
+  
   if (status != MFRC522::STATUS_OK) {
-    Serial.print("PCD_Authenticate() failed (read): ");
-    Serial.println(mfrc522.GetStatusCodeName(status));
     return 3;
   }
 
@@ -141,7 +166,7 @@ byte* readCard(){
     if(!verifyCard()){
         return nullptr;
     }
-    byte block = 2;
+    int block = 2;
     
     // Determine trailer block for the sector
     int largestModulo4Number = block / 4 * 4;

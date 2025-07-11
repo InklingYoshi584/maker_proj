@@ -45,29 +45,31 @@ void setup() {
 
 void loop() {
     // Look for new cards
-  checkForCards();
+  String cardID = checkForCards();
+  Serial.write(cardID);
 }
 
-void checkForCards() {
+String checkForCards() {
   if (!mfrc522.PICC_IsNewCardPresent()) {
-    return;
+    return "";
   }
 
   // Select one of the cards
   if (!mfrc522.PICC_ReadCardSerial()) {
-    return;
+    return "";
   }
 
   readBlock(2, readbackblock);
-  Serial.print("got card");
-  Serial.println("read block: ");
+  String cardID = "";
   for (int j = 0; j < 16; j++) {
-    Serial.write(readbackblock[j]);
+    cardID += (char)readbackblock[j];
   }
   
   // Halt PICC and stop crypto
   mfrc522.PICC_HaltA();
   mfrc522.PCD_StopCrypto1();
+  
+  return cardID;
 }
 void resetCardReader() {
     SPI.begin();

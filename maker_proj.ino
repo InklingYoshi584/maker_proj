@@ -73,7 +73,7 @@ void loop() {
       triggers++;
       Serial.println("PIR trigger" + checkPIR());
     }
-    if (checkVibration()){
+    if (!checkVibration()){
       triggers++;
       Serial.println("Vibration trigger" + checkVibration());
     }
@@ -105,6 +105,8 @@ void initRFID() {
   for (int i = 1; i < 17; i++) {
       EEPROM.write(i, cardID[i-1]);
   }
+  resetCardReader();
+
 }
 
 
